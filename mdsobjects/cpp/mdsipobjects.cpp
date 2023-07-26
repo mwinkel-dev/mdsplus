@@ -602,7 +602,7 @@ void Connection::setDefault(char *path)
 TreeNodeThinClient *Connection::getNode(char *path)
 {
   char expr[256];
-  sprintf(expr, "GETNCI(%s, \'NID_NUMBER\')", path);
+  snprintf(expr, sizeof(expr), "GETNCI(%s, \'NID_NUMBER\')", path);
   AutoData<Data> nidData(get(expr));
   if (!nidData)
     throw MdsException("Cannot get remote nid in Connection::getNode");
@@ -615,7 +615,7 @@ void Connection::registerStreamListener(DataStreamListener *listener,
                                         char *expr, char *tree, int shot)
 {
   char regExpr[64 + strlen(expr) + strlen(tree)];
-  sprintf(regExpr, "MdsObjectsCppShr->registerListener(\"%s\",\"%s\",val(%d))",
+  snprintf(regExpr, sizeof(regExpr), "MdsObjectsCppShr->registerListener(\"%s\",\"%s\",val(%d))",
           expr, tree, shot);
 
   AutoData<Data> idData(get(regExpr, NULL, 0));
@@ -635,7 +635,7 @@ void Connection::unregisterStreamListener(DataStreamListener *listener)
     return;
   int id = listenerIdV[idx];
   char regExpr[64];
-  sprintf(regExpr, "MdsObjectsCppShr->unregisterListener(val(%d))", id);
+  snprintf(regExpr, sizeof(regExpr), "MdsObjectsCppShr->unregisterListener(val(%d))", id);
   get(regExpr);
   listenerV.erase(listenerV.begin() + idx);
   listenerIdV.erase(listenerIdV.begin() + idx);
