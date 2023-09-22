@@ -9,7 +9,8 @@ This "preview" contains these major changes:
 
 Customers using macOS will typically install Xcode, which includes the AppleClang compiler.  However, they might also have installed the Clang compiler.  (Although the Jenkins build system will probably use Clang, the goal is to ensure it also builds with AppleClang.)  Some issues have been seen when switching between the two compilers.  These issues will be investigated / fixed soon.   
 
-Depending on the compiler used, one test occasionally fails (out of a total of 108 test cases).
+- AppleClang on Intel macOS Ventura works for all build types: `Debug`, `Release`, `MinSizeRel`, and `RelWithDebInfo`.
+- Clang though only works with `Debug`.  (When using the other build types, the Java `MdsTreeNodeTest` fails.)
 
 
 ## Notes for mw-preview-macos-intel-v2
