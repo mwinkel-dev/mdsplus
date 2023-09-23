@@ -10,8 +10,9 @@ This "preview" contains these major changes:
 Customers using macOS will typically install Xcode, which includes the AppleClang compiler.  However, they might also have installed the Clang compiler.  (Although the Jenkins build system will probably use Clang, the goal is to ensure it also builds with AppleClang.)  Some issues have been seen when switching between the two compilers.  These issues will be investigated / fixed soon.   
 
 - AppleClang on Intel macOS Ventura works for all build types: `Debug`, `Release`, `MinSizeRel`, and `RelWithDebInfo`.
-- Clang though only works with `Debug`.  (When using the other build types, the Java `MdsTreeNodeTest` fails.)
+- Clang though only works with `Debug`.  When using the other build types, the Java `MdsTreeNodeTest` fails.  Note that the behavior of Clang on Intel macOS is different than on x86_64 Ubuntu 20.04 (which passes 100% of the tests).
 
+The `flang-new` FORTRAN compiler was used simply because it can create "universal" binaries for both Intel and Apple Silicon macOS.   However, eventually should confirm that the `gfortran` compiler also works.
 
 ## Notes for mw-preview-macos-intel-v2
 
@@ -41,7 +42,7 @@ Note that the "XMW" tag has a naming collision with xmdsshr/UilKeyTab.h -- the i
 
 ## Limitations
 
-This is prototype software.   Although it passes 99% of the test cases (one test fails), it has the following limitations:
+This is prototype software.   Although it passes 100% of the tests (with AppleClang) it has the following limitations:
 
 - No LabView
 - No IDL
@@ -71,8 +72,7 @@ The changes that were made, fall into these categories:
 A few environment variables must be set before building.  Edit these as needed.
 
 ```
-# Fortran compiler is "flang" because gfortran not yet available
-# for Intel macOS Ventura.  Also, "flang" can be used to create 
+# Fortran compiler is "flang" because can be used to create 
 # "universal" binaries that will work with both Intel and Apple Silicon.
 # Note that "flang" requires access to Apple's SDK.
 export XMW_FLANG=/opt/local/libexec/llvm-16/bin/flang-new
@@ -88,7 +88,6 @@ Inside the mdsplus repo, run a Python script (which in turn calls CMake) with th
 ```
 
 Note that `-j` denotes parallel testing.  To do sequential testing, omit the `-j`.
-
 
 
 ## Using the Installed MDSplus
