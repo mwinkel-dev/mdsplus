@@ -2,17 +2,31 @@
 
 This "preview" contains these major changes:
 
-- based on recent `cmake` branch (many changes, including latest `alpha`)
+- based on 13-Sep-2023 `cmake` branch (many changes, including latest `alpha`)
 
 
-## Still To Do
+## Supported Compilers
 
-Customers using macOS will typically install Xcode, which includes the AppleClang compiler.  However, they might also have installed the Clang compiler.  (Although the Jenkins build system will probably use Clang, the goal is to ensure it also builds with AppleClang.)  Some issues have been seen when switching between the two compilers.  These issues will be investigated / fixed soon.   
+### C / C++
 
-- AppleClang on Intel macOS Ventura works for all build types: `Debug`, `Release`, `MinSizeRel`, and `RelWithDebInfo`.
-- Clang though only works with `Debug`.  When using the other build types, the Java `MdsTreeNodeTest` fails.  Note that the behavior of Clang on Intel macOS is different than on x86_64 Ubuntu 20.04 (which passes 100% of the tests).
+- `AppleClang` is included in Apple's Xcode app, which is the primary development tool for macOS.   When porting MDSplus to Intel macOS Ventura, 100% of the test cases passed for all build types: `Debug`, `Release`, `MinSizeRel`, and `RelWithDebInfo`.  AppleClang is probably the best choice when the new Mac mini is added to the Jenkins build system.
 
-The `flang-new` FORTRAN compiler was used simply because it can create "universal" binaries for both Intel and Apple Silicon macOS.   However, eventually should confirm that the `gfortran` compiler also works.
+- `Clang` and `clang++` only work (100% pass) with `Debug`.  When used with the other build types, the Java `MdsTreeNodeTest` fails.  Note that the behavior of Clang on Intel macOS is different than on x86_64 Ubuntu 20.04 (which passes 100% of the tests).
+
+- `gcc` and `g++` work (100% pass) in `Debug`.   However, in `Release` mode, fails the tditest `test-tcl`.
+
+### FORTRAN
+
+- `flang-new` can create "universal" binaries for both Intel and Apple Silicon macOS.   Note that `flang-new` needs access to Apple's `SDKROOT`.  This compiler was used most of the time when porting MDSplus to Intel macOS Ventura.
+
+- `gfortran` also works, but apparently cannot create "universal" binaries.
+
+## Testing
+
+The test suite can run in parallel or sequentially on Intel macOS Ventura.   Either via the `deploy\build.py --test -j` script, or via `ctest -jN`.  (Note that `ctest -j` just does sequential testing; for parallel testing must specify `N` -- such as `-j6`).
+
+Also note that the `valgrind` testing tool is not available for macOS Ventura.
+
 
 ## Notes for mw-preview-macos-intel-v2
 
@@ -33,7 +47,7 @@ However, porting MDSplus to Apple Silicon macOS Ventura is far more complicated 
 
 ## Work In Progress
 
-Transient / temporary work is denoted with uppercase "XMW" (indicates "experimental change made by MarkW").  Source directories that are in flux will usually have a "0_XMW_README.md" file with some notes about the changes / experiments.   Source comments that contain "XMW" (such as "//XMW" or "#XMW") are temporary changes (such as debug print statements).
+Transient / temporary work is denoted with uppercase `XMW` (indicates "experimental change made by MarkW").  Source directories that are in flux will usually have a `0_XMW_README.md` file with some notes about the changes / experiments.   Source comments that contain "XMW" (such as "//XMW" or "#XMW") are temporary changes (such as debug print statements).
 
 Any change flagged with "XMW" (whether file or source lines), *MUST* not be included in PRs submitted to official branches.
 
@@ -44,7 +58,7 @@ Note that the "XMW" tag has a naming collision with xmdsshr/UilKeyTab.h -- the i
 
 This is prototype software.   Although it passes 100% of the tests (with AppleClang) it has the following limitations:
 
-- No LabView
+- LabVIEW with AppleClang and Clang, but perhaps not with gcc
 - No IDL
 - No install / smoke tests of the resulting MDSplus
 
@@ -92,7 +106,7 @@ Note that `-j` denotes parallel testing.  To do sequential testing, omit the `-j
 
 ## Using the Installed MDSplus
 
-There will likely be two versions of Python on the Mac.  One is included with Apple's Xcode, the other installed with MacPorts.  Use the one installed with MacPorts.
+There will likely be two versions of Python on the Mac.  One is included with Apple's Xcode, the other installed with MacPorts or Homebrew.  This code block shows the paths for the MacPorts version.
 
 ```
 export PYTHON=/opt/local/bin/python3.11
