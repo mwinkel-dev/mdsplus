@@ -28,6 +28,11 @@ The test suite can run in parallel or sequentially on Intel macOS Ventura.   Eit
 Also note that the `valgrind` testing tool is not available for macOS Ventura.
 
 
+## Cross-Compiling
+
+Still have to demonstrate that Apple Silicon can cross compile MDSplus for Intel macOS.
+
+
 ## Notes for mw-preview-macos-intel-v2
 
 The `mw-preview-macos-intel-v2` branch is a temporary preview branch for Intel macOS Ventura.   It is NOT the official branch.  This preview branch will vanish soon.
