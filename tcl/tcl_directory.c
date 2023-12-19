@@ -114,7 +114,7 @@ EXPORT int TclDirectory(void *ctx, char **error __attribute__((unused)),
                         char **output)
 {
   char *tagnam;
-  char msg[128];
+  char msg[512];
   char *nodnam = 0;
   char *pathnam;
 
