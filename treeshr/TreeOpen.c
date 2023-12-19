@@ -150,39 +150,6 @@ EXPORT char *TreePath(char const *tree, char *tree_lower_out)
   return path;
 }
 
-static char *ReplaceAliasTrees(char *tree_in)
-{
-  size_t buflen = strlen(tree_in) + 1;
-  char *ans = calloc(1, buflen);
-  char *tree = strtok(tree_in, ",");
-  size_t i;
-  while (tree)
-  {
-    char *treepath = TreePath(tree, 0);
-    if (treepath && (strlen(treepath) > 5) &&
-        (strncmp(treepath, "ALIAS", 5) == 0))
-      tree = &treepath[5];
-    if ((buflen - strlen(ans)) < (strlen(tree) + 1))
-    {
-      buflen += (strlen(tree) + 1);
-      ans = realloc(ans, buflen);
-    }
-    if (strlen(ans) == 0)
-      strcpy(ans, tree);
-    else
-    {
-      strcat(ans, ",");
-      strcat(ans, tree);
-    }
-    free(treepath);
-    tree = strtok(0, ",");
-  }
-  free(tree_in);
-  for (i = 0; i < buflen; ++i)
-    ans[i] = (char)toupper(ans[i]);
-  return ans;
-}
-
 static void free_top_db(PINO_DATABASE **dblist)
 {
   if ((*dblist)->next)
@@ -204,7 +171,6 @@ EXPORT int _TreeOpen(void **dbid, char const *tree_in, int shot_in,
   char *comma_ptr;
 
   RemoveBlanksAndUpcase(tree, tree_in);
-  tree = ReplaceAliasTrees(tree);
   if ((comma_ptr = strchr(tree, ',')) != 0)
   {
     subtree_list = strdup(tree);
