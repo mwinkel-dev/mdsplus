@@ -711,10 +711,11 @@ int TreeGetNci(int nid_in, struct nci_itm *nci_itm)
     {
       if (itm->buffer_length && itm->pointer)
       {
+        // v8 node name includes trailing null hence -1, v7 and earlier did not
         retlen = minInt(strlen(string), itm->buffer_length-1);
         memcpy(itm->pointer, string, retlen);
         char *cptr = (char *)itm->pointer;
-	cptr[retlen] = '\0';
+        cptr[retlen] = '\0';
         free(string);
       }
       else

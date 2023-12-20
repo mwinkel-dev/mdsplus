@@ -130,12 +130,13 @@ EXPORT int TclDirectory(void *ctx, char **error __attribute__((unused)),
   int last_parent_nid = -1;
   int version;
   int parent_nid;
-  char nodnamC[64 + 1];
+  const int NODE_NAME_SIZE = 64; // v8 has final null char, pre-v8 did not
+  char nodnamC[NODE_NAME_SIZE];
   int relationship;
   int previous_relationship = 0;
   unsigned char nodeUsage;
   NCI_ITM general_info_list[] = {{4, NciPARENT, &parent_nid, 0},
-                                 {64, NciNODE_NAME, nodnamC, &nodnamLen},
+                                 {NODE_NAME_SIZE, NciNODE_NAME, nodnamC, &nodnamLen},
                                  {4, NciPARENT_RELATIONSHIP, &relationship, 0},
                                  {1, NciUSAGE, &nodeUsage, 0},
                                  {0, NciEND_OF_LIST, 0, 0}};
