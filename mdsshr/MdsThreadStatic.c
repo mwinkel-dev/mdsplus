@@ -43,6 +43,10 @@ static inline void free_buffer(buffer_t *buf)
   free(buf);
 }
 
+//XMW: This shows that the various THREADSTATIC_INIT statements scattered throughout
+//XMW: all the source files only initializes a thread's buffers on the first call.
+//XMW: All subsequent calls (in the same thread) just return a pointer to the
+//XMW: existing buffers.
 EXPORT MDSplusThreadStatic_t *newMDSplusThreadStatic()
 {
   MDSplusThreadStatic_t *mts =

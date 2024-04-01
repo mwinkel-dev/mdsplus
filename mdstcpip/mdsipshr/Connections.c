@@ -38,6 +38,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // #define DEBUG
 #include <mdsmsg.h>
 
+//XMW: When called from mdstcl's Dispatcher thread, this function does not find
+//XMW: the specified connection.  That is because the MDSIPTHREADSTATIC_ARG
+//XMW: points to an empty buffer when in the Dispatcher thread.  And thus
+//XMW: the function returns a NULL.
 Connection *_FindConnection(int id, Connection **prev, MDSIPTHREADSTATIC_ARG)
 {
   if (id == INVALID_CONNECTION_ID)
@@ -53,6 +57,22 @@ Connection *_FindConnection(int id, Connection **prev, MDSIPTHREADSTATIC_ARG)
   return c;
 }
 
+
+//XMW: The MDSIPTHREADSTATIC_INIT define returns a pointer to the thread's local
+//XMW: buffers if they exist.  Otherwise, it creates blank buffers for the thread.
+//XMW: For more details, refer to the MdsThreadStatic.c file.
+//XMW:
+//XMW: The issue is that in mdstcl, this code is called from two different
+//XMW: threads: the main thread and the Dispatcher thread.  
+//XMW:
+//XMW: This function is called first by the main thread, and thus 
+//XMW: the "Connection ID table" (which is a linked list of structs) is
+//XMW: created in the main thread's buffers.
+//XMW:
+//XMW: When the Dispatcher thread calls this function later, the MDSIPTHREADSTATIC_INIT
+//XMW: creates empty buffers in the Dispatcher thread.  This function of course can't 
+//XMW: find the connection ID in an empty buffer, so returns NULL as the MDSIPTHREADSTATIC_ARG
+//XMW: that is passed to _FindConnection() above.
 Connection *PopConnection(int id)
 {
   MDSIPTHREADSTATIC_INIT;
@@ -308,6 +328,9 @@ int destroyConnection(Connection *connection)
   return MDSplusSUCCESS;
 }
 
+//XMW: When called from mdstcl's Dispatcher thread this returns MDSplusERROR because
+//XMW: the PopConnection() call cannot access the "Connection ID table" that 
+//XMW: is in the main thread's buffers.
 int CloseConnection(int id)
 {
   Connection *const c = PopConnection(id);

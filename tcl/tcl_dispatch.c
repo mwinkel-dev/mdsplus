@@ -40,6 +40,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "tcl_p.h"
 
+//XMW: Need this include if closing connections in this main thread.
+//XWM: Refer to the additional "XMW:" comments around line 425 below.
+//XMW: #include "../mdstcpip/mdsip_connections.h"
+
 extern int TdiData();
 
 /**********************************************************************
@@ -415,6 +419,10 @@ EXPORT int TclDispatch_phase(void *ctx, char **error,
   free(monitor);
   free(synch_str);
   free(phase);
+  //XMW: Dispatcher thread is done.  So now this main thread could close a list
+  //XWM: of connections if provided by the Dispatcher thread.  An experiment proves that
+  //XMW: this approach works.  If calling mdstcpip's CloseConnection() here, need the
+  //XMW: additional include at the top of this file. 
   if (STATUS_NOT_OK)
   {
     char *msg = MdsGetMsg(status);

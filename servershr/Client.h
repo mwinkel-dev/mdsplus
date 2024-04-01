@@ -89,11 +89,12 @@ static inline int Client_free(Client *client, fd_set *fdactive)
       shutdown(client->reply_sock, SHUT_RDWR);
       int true=1;
       setsockopt(client->reply_sock, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int));
-
       close(client->reply_sock);
       if (fdactive)
         FD_CLR(client->reply_sock, fdactive);
     }
+    //XMW: The next line returns MDSplusERROR because it is running in mdstcl's Dispatcher thread
+    //XMW: and thus doesn't have access to the "Connection ID table" in the main thread's buffer.
     DisconnectFromMds(client->conid);
     free(client);
     return conid;
@@ -199,6 +200,7 @@ static void Client_do_message(Client *c, fd_set *fdactive)
     if (j)
     {
       Job_callback_done(j, status, TRUE);
+      //XMW: The next line is needed, but unforunately fails because of threading issues.
       Client_remove(c, fdactive);
     }
     else
