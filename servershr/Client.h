@@ -86,7 +86,10 @@ static inline int Client_free(Client *client, fd_set *fdactive)
     MDSDBG(CLIENT_PRI, CLIENT_VAR(client));
     if (client->reply_sock != INVALID_SOCKET)
     {
-      shutdown(client->reply_sock, 2);
+      shutdown(client->reply_sock, SHUT_RDWR);
+      int true=1;
+      setsockopt(client->reply_sock, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int));
+
       close(client->reply_sock);
       if (fdactive)
         FD_CLR(client->reply_sock, fdactive);
@@ -196,6 +199,7 @@ static void Client_do_message(Client *c, fd_set *fdactive)
     if (j)
     {
       Job_callback_done(j, status, TRUE);
+      Client_remove(c, fdactive);
     }
     else
     {
