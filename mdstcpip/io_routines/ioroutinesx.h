@@ -1,3 +1,11 @@
+//XMW:? Is everything in this file obsolete?  There is a comment in
+//XMW:? the mdsip_connections.h file that says there are deprecated
+//XMW:? routines in this file.
+//XMW:?
+//XMW:? Furthermore, many of the routines in this file look like they
+//XMW:? were probably used in an earlier version of the server.  Perhaps
+//XMW:? eveything in this file has been replaced by servershr?
+
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -557,7 +565,7 @@ static int run_server_mode(Options *options)
 {
   /// SERVER MODE  ///////////////
   /// Handle single connection ///
-  SOCKET sock = get_single_server_socket(options->value);
+   SOCKET sock = get_single_server_socket(options->value);
   int id;
   if (IS_NOT_OK(AcceptConnection(PROT, PROT, sock, 0, 0, &id, NULL)))
     return C_ERROR;

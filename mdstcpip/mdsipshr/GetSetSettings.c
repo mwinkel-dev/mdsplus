@@ -139,6 +139,9 @@ int SetCompressionLevel(int level)
 
 /// CLIENT ADDRESS
 /// used in ServerShr
+//XMW:? The debug trace of mdstcl's dispatch command shows these two functions
+//XMW:? are never used.  However a seach of the souce code shows 
+//XMW:? that MdsGetClientAddr() is used in the ServerQAction.c file.
 int MdsGetClientAddr()
 {
   MDSIPTHREADSTATIC_INIT;

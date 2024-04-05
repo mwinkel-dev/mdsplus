@@ -38,24 +38,72 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // #define DEBUG
 #include <mdsmsg.h>
 
+// This global is used to allow mdstcl's receiver thread to access
+// the main thread's list of connections.
+MDSIPTHREADSTATIC_TYPE *accessMainThread = NULL;
+
+Connection *GetMdsIpConnection() {
+  MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_IS_MAIN_THREAD) {
+    return MDSIP_CONNECTIONS;
+  } else {
+    return MDSIP_G_CONNECTIONS;
+  }
+}
+
+int SetMdsIpConnection(Connection *c) {
+  MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_IS_MAIN_THREAD) {
+    MDSIP_CONNECTIONS = c;
+  } else {
+    MDSIP_G_CONNECTIONS = c;
+  }
+  return MDSplusSUCCESS;
+}
+
 Connection *_FindConnection(int id, Connection **prev, MDSIPTHREADSTATIC_ARG)
 {
+  if (MdsIpThreadStatic_p == NULL) MDSDBG("MdsIpThreadStatic_p is null");
+  MDSDBG("isMainThread = %d", MDSIP_IS_MAIN_THREAD);
   if (id == INVALID_CONNECTION_ID)
     return NULL;
-  Connection *c = MDSIP_CONNECTIONS, *p = NULL;
+  Connection *c = GetMdsIpConnection();
+  Connection *p = NULL;
+  if (c == NULL) MDSDBG("Connection c is NULL");
   for (; c; p = c, c = c->next)
   {
-    if (c->id == id)
+    MDSDBG("Scanning connections - id = %d", c->id);
+    if (c->id == id) {
+      MDSDBG("Connection id's match");
       break;
+    }
   }
   if (prev)
     *prev = p;
+  MDSDBG("at end");
   return c;
 }
 
 Connection *PopConnection(int id)
 {
+  // This function is called by both mdstcl's main thread and receiver thread.
+  // However, by the time the main thread reaches this function, initialization
+  // of its "thread static" data structure will already be complete.  Thus, if
+  // the following initialization returns an empty data structure, it is OK to
+  // assume that this function is being executed by the receiver thread.
+  // For more details, refer to Issue #2731.
+  //
+  // NOTE: This assumption relies on the typical control flow of mdstcl.  If
+  // other programs have an unusual usage pattern, this code can fail.
+  // However, it would be rare to have a program with a receiver thread that
+  // calls PopConnection() before the main thread calls AddConnection().
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIPTHREADSTATIC_VAR->isInitialized == FALSE) {
+    MDSIPTHREADSTATIC_VAR->isInitialized = TRUE;
+    MDSIP_IS_MAIN_THREAD = FALSE;
+    MDSDBG("Initializing receiver's thread static");
+  }
+  MDSDBG("isMainThread = %d", MDSIP_IS_MAIN_THREAD);
   Connection *p, *c;
   c = _FindConnection(id, &p, MDSIPTHREADSTATIC_VAR);
   if (c && !(c->state & CON_INLIST))
@@ -85,7 +133,7 @@ Connection *PopConnection(int id)
       }
       else
       {
-        MDSIP_CONNECTIONS = c->next;
+        SetMdsIpConnection(c->next);
       }
       c->next = NULL;
       MDSDBG(CON_PRI " popped", CON_VAR(c));
@@ -99,6 +147,7 @@ Connection *PopConnection(int id)
 Connection *FindConnectionSending(int id)
 {
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   Connection *c;
   c = _FindConnection(id, NULL, MDSIPTHREADSTATIC_VAR);
   if (c)
@@ -119,6 +168,7 @@ Connection *FindConnectionSending(int id)
 EXPORT int MdsIpGetConnectionVersion(int id)
 {
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   Connection *c = _FindConnection(id, NULL, MDSIPTHREADSTATIC_VAR);
   return (c) ? (int)c->version : -1;
 }
@@ -126,6 +176,7 @@ EXPORT int MdsIpGetConnectionVersion(int id)
 Connection *FindConnectionWithLock(int id, con_t state)
 {
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   Connection *c = _FindConnection(id, NULL, MDSIPTHREADSTATIC_VAR);
   while (c && (c->state & CON_ACTIVITY) && (c->state & CON_INLIST))
   {
@@ -147,8 +198,9 @@ Connection *FindConnectionWithLock(int id, con_t state)
 void UnlockConnection(Connection *c_in)
 {
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   Connection *c; // check if not yet freed
-  for (c = MDSIP_CONNECTIONS; c; c = c->next)
+  for (c = GetMdsIpConnection(); c; c = c->next)
   {
     if (c == c_in)
     {
@@ -164,9 +216,10 @@ int NextConnection(void **ctx, char **info_name, void **info,
 { // check
   int ans;
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   Connection *c, *next;
-  next = (*ctx != (void *)-1) ? (Connection *)*ctx : MDSIP_CONNECTIONS;
-  for (c = MDSIP_CONNECTIONS; c && c != next; c = c->next)
+  next = (*ctx != (void *)-1) ? (Connection *)*ctx : GetMdsIpConnection();
+  for (c = GetMdsIpConnection(); c && c != next; c = c->next)
     ;
   if (c)
   {
@@ -273,11 +326,14 @@ int destroyConnection(Connection *connection)
 {
   if (!connection)
     return MDSplusERROR;
+  MDSDBG("after !connection");
   if (connection->id != INVALID_CONNECTION_ID)
   {
+    MDSDBG("have valid connection id");
     if (connection->state & CON_INLIST)
     {
       MDSIPTHREADSTATIC_INIT;
+      if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
       if (connection == _FindConnection(connection->id, NULL, MDSIPTHREADSTATIC_VAR))
       {
         PopConnection(connection->id);
@@ -297,6 +353,7 @@ int destroyConnection(Connection *connection)
   }
   if (connection->io)
   {
+    MDSDBG("connectio has io so will be disconnected");
     connection->io->disconnect(connection);
   }
   MDSDBG(CON_PRI " disconnected", CON_VAR(connection));
@@ -311,6 +368,7 @@ int destroyConnection(Connection *connection)
 int CloseConnection(int id)
 {
   Connection *const c = PopConnection(id);
+  MDSDBG("connection id = %d", id);
   return destroyConnection(c);
 }
 
@@ -338,6 +396,7 @@ void *GetConnectionInfo(int conid, char **info_name, SOCKET *readfd,
                         size_t *len)
 {
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   void *ans;
   Connection *c = _FindConnection(conid, NULL, MDSIPTHREADSTATIC_VAR);
   ans = ConnectionGetInfo(c, info_name, readfd, len);
@@ -372,6 +431,7 @@ void SetConnectionInfo(int conid, char *info_name, SOCKET readfd, void *info,
                        size_t len)
 {
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   Connection *c = _FindConnection(conid, NULL, MDSIPTHREADSTATIC_VAR);
   ConnectionSetInfo(c, info_name, readfd, info, len);
 }
@@ -383,6 +443,7 @@ void SetConnectionInfo(int conid, char *info_name, SOCKET readfd, void *info,
 void SetConnectionCompression(int conid, int compression)
 {
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   Connection *c = _FindConnection(conid, NULL, MDSIPTHREADSTATIC_VAR);
   if (c)
     c->compression_level = compression;
@@ -395,6 +456,7 @@ static inline int ConnectionGetCompression(Connection *c)
 int GetConnectionCompression(int conid)
 {
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   int complv;
   Connection *c = _FindConnection(conid, NULL, MDSIPTHREADSTATIC_VAR);
   complv = ConnectionGetCompression(c);
@@ -423,6 +485,7 @@ unsigned char ConnectionIncMessageId(Connection *c)
 void SetConnectionClientType(int conid, int client_type)
 {
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   Connection *c = _FindConnection(conid, NULL, MDSIPTHREADSTATIC_VAR);
   if (c)
     c->client_type = client_type;
@@ -438,6 +501,7 @@ void SetConnectionClientType(int conid, int client_type)
 client_t GetConnectionClientType(int conid)
 {
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIP_CONNECTIONS == NULL) MDSDBG("thread static is null");
   client_t type;
   Connection *c = _FindConnection(conid, NULL, MDSIPTHREADSTATIC_VAR);
   type = c ? c->client_type : INVALID_CLIENT;
@@ -464,7 +528,15 @@ static inline int authorize_client(Connection *c, char *username)
 ////////////////////////////////////////////////////////////////////////////////
 int AddConnection(Connection *c)
 {
+  // In mdstcl, the main thread first encounters this INIT.
   MDSIPTHREADSTATIC_INIT;
+  if (MDSIPTHREADSTATIC_VAR->isInitialized == 0) {
+    MDSIPTHREADSTATIC_VAR->isInitialized = TRUE;
+    MDSIP_IS_MAIN_THREAD = TRUE;
+    accessMainThread = MDSIPTHREADSTATIC_VAR;
+    MDSDBG("initializing main's thread static");
+  }
+  MDSDBG("isMainThread = %d", MDSIP_IS_MAIN_THREAD);
   static int id = INVALID_CONNECTION_ID;
   static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
   pthread_mutex_lock(&lock);
@@ -475,9 +547,9 @@ int AddConnection(Connection *c)
   c->id = id;
   pthread_mutex_unlock(&lock);
   c->state |= CON_INLIST;
-  c->next = MDSIP_CONNECTIONS;
-  MDSIP_CONNECTIONS = c;
-  MDSDBG("Connection %02d connected", c->id);
+  c->next = GetMdsIpConnection();
+  SetMdsIpConnection(c);
+  MDSDBG("Connection %02d connected, isMainThread = %d", c->id, MDSIP_IS_MAIN_THREAD);
   return c->id;
 }
 

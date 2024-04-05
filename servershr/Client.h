@@ -80,18 +80,22 @@ static inline Client *Client_pop_locked(Client *client)
 
 static inline int Client_free(Client *client, fd_set *fdactive)
 {
+  INIT_STATUS;
   if (client)
   {
     const int conid = client->conid;
     MDSDBG(CLIENT_PRI, CLIENT_VAR(client));
     if (client->reply_sock != INVALID_SOCKET)
     {
-      shutdown(client->reply_sock, 2);
+      shutdown(client->reply_sock, SHUT_RDWR);
+      int true = 1;
+      setsockopt(client->reply_sock, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(int));
       close(client->reply_sock);
       if (fdactive)
         FD_CLR(client->reply_sock, fdactive);
     }
-    DisconnectFromMds(client->conid);
+    status = DisconnectFromMds(client->conid);
+    if (STATUS_NOT_OK) MDSDBG("%s", MdsGetMsg(status));
     free(client);
     return conid;
   }
@@ -161,7 +165,7 @@ static void Client_do_message(Client *c, fd_set *fdactive)
     if (nbytes != 0)
       MDSWRN(CLIENT_PRI " Invalid read %d/60", CLIENT_VAR(c), nbytes);
     else
-      MDSDBG(CLIENT_PRI " Clint disconnected", CLIENT_VAR(c));
+      MDSDBG(CLIENT_PRI " Client disconnected", CLIENT_VAR(c));
     Client_remove(c, fdactive);
     return;
   }
@@ -201,6 +205,8 @@ static void Client_do_message(Client *c, fd_set *fdactive)
     {
       MDSWRN(CLIENT_PRI " no job to finish", CLIENT_VAR(c));
     }
+    Client_remove(c, fdactive);
+    MDSDBG("Processed the SrvJobFINISHED reply");
     break;
   }
   case SrvJobSTARTING:

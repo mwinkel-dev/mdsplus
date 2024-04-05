@@ -745,6 +745,8 @@ EXPORT int FlushConnection(int id);
 EXPORT int ReceiveFromConnection(int id, void *buffer, size_t buflen);
 
 // Deprecated ipaddr routines
+//XMW:? Referenced in mdstcpip/io_routines/ioroutinesx.h.  Does that mean all
+//XMW:? of ioroutinesx.h is deprecated?
 EXPORT int MdsGetClientAddr();
 EXPORT void MdsSetClientAddr(int);
 #endif

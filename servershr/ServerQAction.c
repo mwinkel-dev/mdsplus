@@ -146,6 +146,8 @@ EXPORT int ServerDebug(int setting)
 }
 
 // main
+//XMW:? Does this still work with TDI's ServerGetInfo.fun function?
+//XMW:? Note that the TDI function is passing in zero for the addrp argument.
 EXPORT int ServerQAction(uint32_t *addrp, uint16_t *portp, int *op, int *flags,
                          int *jobid, void *p1, void *p2, void *p3, void *p4,
                          void *p5, void *p6, void *p7, void *p8)

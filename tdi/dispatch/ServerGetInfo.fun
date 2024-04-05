@@ -1,3 +1,4 @@
+/* XMW:? Does this even work anymore? */
 public fun ServerGetInfo()
 {
   _ans=*;

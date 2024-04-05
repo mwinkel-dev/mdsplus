@@ -200,7 +200,7 @@ int ServerSendMessage(int *msgid, char *server, int op, int *retstatus,
     Job_cleanup(status, jobid);
     return status;
   }
-  status = GetAnswerInfoTS(conid, &dtype, &len, &ndims, dims, &numbytes,
+  status = GetAnswerInfoTS(conid, &dtype, (short *) &len, &ndims, dims, &numbytes,
                            (void **)&dptr, &mem);
   if (op == SrvStop)
   {
