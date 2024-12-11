@@ -420,7 +420,7 @@ add_compile_definitions(
 include(MDSplusCheckFlags)
 include(MDSplusAddCompilerFlag)
 
-if(ENABLE_TESTS)
+if(BUILD_TESTING)
     include(CTest)
 endif()
 
@@ -668,13 +668,13 @@ if(ENABLE_JAVA)
         # but also allows you to pick the jdk version
         execute_process(
             COMMAND /usr/libexec/java_home -v ${JAVA_VERSION}
-            OUTPUT_VARIABLE _result
+            OUTPUT_VARIABLE _output
             OUTPUT_STRIP_TRAILING_WHITESPACE
             ERROR_QUIET
         )
 
-        if(_result AND IS_DIRECTORY "${_result}")
-            set(JAVA_HOME ${_result})
+        if(_output AND IS_DIRECTORY "${_output}")
+            set(JAVA_HOME ${_output})
         endif()
     endif()
 
@@ -691,10 +691,10 @@ if(ENABLE_JAVA)
     if(JAVA_HOME STREQUAL "")
         execute_process(
             COMMAND ${Java_JAVA_EXECUTABLE} -XshowSettings:properties -version
-            ERROR_VARIABLE _result # for some reason this outputs to stderr
+            ERROR_VARIABLE _java_properties # for some reason this outputs to stderr
         )
 
-        if("${_result}" MATCHES "java\.home = ([^\n]*)")
+        if("${_java_properties}" MATCHES "java\.home = ([^\n]*)")
             set(JAVA_HOME "${CMAKE_MATCH_1}")
         endif()
     endif()

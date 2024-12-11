@@ -116,11 +116,14 @@ parser.add_argument(
 
 parser.add_argument(
     '--install',
-    metavar='',
-    help='The directory that will contain the full usr/local/mdsplus installation, used for CMAKE_INSTALL_PREFIX, defaults to `{--workspace}/install/`.',
-    nargs='?',
-    const=True,
-    default=True,
+    action='store_true',
+    help='Install into `{--workspace}/install/usr/local/mdsplus`. Implied by --package',
+)
+
+parser.add_argument(
+    '--package',
+    action='store_true',
+    help='Create native packages and store them in `{--workspace}/packages`. Implies --install.',
 )
 
 parser.add_argument(
@@ -205,6 +208,18 @@ parser.add_argument(
 ###
 ### Helper functions
 ###
+
+git_executable = shutil.which('git')
+
+def git(command):
+    proc = subprocess.Popen(
+        [ git_executable ] + command.split(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT
+    )
+
+    stdout, _ = proc.communicate()
+    return stdout.decode().strip()
 
 def build_command_line(args):
     build_args = []
@@ -324,11 +339,13 @@ if not args['buildroot']:
 
 os.makedirs(args['buildroot'], exist_ok=True)
 
-# If no install path is specified, use the default
-if args['install'] == True:
-    args['install'] = os.path.join(args['workspace'], 'install/usr/local/mdsplus')
+if args['package'] == True:
+    args['install'] = True
+    packages_dir = os.path.join(args['workspace'], 'packages')
+    os.makedirs(packages_dir, exist_ok=True)
 
-os.makedirs(args['install'], exist_ok=True)
+install_dir = os.path.join(args['workspace'], 'install/usr/local/mdsplus')
+os.makedirs(install_dir, exist_ok=True)
 
 if args['dockerimage'] is not None:
 
@@ -360,7 +377,6 @@ if args['dockerimage'] is not None:
         f"--volume={args['workspace']}:{args['workspace']}",
         f"--volume={args['source']}:{args['source']}", # TODO: Improve?
         f"--volume={args['buildroot']}:{args['buildroot']}",
-        f"--volume={args['install']}:{args['install']}",
         f"--workdir={args['workspace']}",
         args['dockerimage'],
     ]
@@ -541,7 +557,7 @@ else:
     elif args['generator'] == 'Ninja':
         build_command = f"ninja -j{args['parallel']}"
 
-    if args['install'] is not None:
+    if args['install'] == True:
         install_command = f"{build_command} install"
 
     cmake_args = [ '-G', args['generator'] ] + cmake_args
@@ -572,8 +588,8 @@ else:
     if args['test']:
         cmake_args.append('-DBUILD_TESTING=ON')
 
-    if args['install'] is not None:
-        cmake_args.append(f"-DCMAKE_INSTALL_PREFIX={args['install']}")
+    if args['install'] == True:
+        cmake_args.append(f"-DCMAKE_INSTALL_PREFIX={install_dir}")
 
     print('CMake arguments:')
     for arg in cmake_args:
@@ -607,7 +623,7 @@ else:
             
         os.chmod(build_filename, 0o755)
 
-        if args['install'] is not None:
+        if args['install'] == True:
             install_filename = os.path.join(args['workspace'], 'do-install.sh')
             with open(install_filename, 'wt') as file:
                 file.write('#!/bin/bash\n')
@@ -619,7 +635,7 @@ else:
             setup_filename = os.path.join(args['workspace'], 'setup.sh')
             with open(setup_filename, 'wt') as file:
                 file.write('#!/bin/bash\n')
-                file.write(f"export MDSPLUS_DIR={args['install']}\n")
+                file.write(f"export MDSPLUS_DIR={install_dir}\n")
                 file.write(f"source $MDSPLUS_DIR/setup.sh\n")
                 
             os.chmod(setup_filename, 0o755)
@@ -659,7 +675,7 @@ else:
             print()
 
             # For systems where setup.sh is automatically sourced
-            os.environ['MDSPLUS_DIR'] = args['install']
+            os.environ['MDSPLUS_DIR'] = install_dir
             
         print('Spawning a new shell, type `exit` to leave.')
         print()
@@ -692,22 +708,106 @@ else:
             print('CMake Build failed')
             exit(result.returncode)
 
-        if args['install'] is not None:
+        if args['install'] == True:
             subprocess.run(
                 [
                     shell, '-c',
                     install_command
                 ],
                 cwd=args['buildroot'],
+                stdout=subprocess.DEVNULL,
             )
 
             fake_setup_filename = os.path.join(args['workspace'], 'setup.sh')
             with open(fake_setup_filename, 'wt') as file:
                 file.write('#!/bin/sh\n')
-                file.write(f"export MDSPLUS_DIR=\"{args['install']}\"\n")
+                file.write(f"export MDSPLUS_DIR=\"{install_dir}\"\n")
                 file.write('. $MDSPLUS_DIR/setup.sh\n')
 
             # todo: error checking
+
+        if args['package']:
+
+            # TODO: What's the best way to get these?
+            # branch = git('rev-parse --abbrev-ref HEAD')
+            release_version = git('describe --tag')
+
+            # TODO: Harden
+            branch, major, minor, patch, hash = release_version.split('-', maxsplit=4)
+            branch = branch.removesuffix('_release')
+
+            release_version = f'{major}.{minor}.{patch}'
+
+            # Debian
+            if branch in ['alpha', 'stable']:
+                flavor = branch
+            else:
+                flavor = 'other'
+            
+            # TODO: Figure out where this is set in the old scripts
+            arch = 'amd64' # ???
+
+            package_env = dict(os.environ)
+            package_env['BUILDROOT'] = os.path.join(args['workspace'], 'install')
+            package_env['DISTROOT'] = os.path.join(args['workspace'], 'dist')
+            package_env['BRANCH'] = branch
+            package_env['FLAVOR'] = flavor
+            package_env['BNAME'] = f'-{branch}'
+            package_env['DISTNAME'] = args['distname']
+            package_env['PLATFORM'] = args['platform']
+            package_env['ARCH'] = arch
+            package_env['RELEASE_VERSION'] = release_version
+
+            dist_dir = os.path.join(args['workspace'], f"dist/{args['distname']}/{flavor}/DEBS/{arch}")
+
+            result = subprocess.run(
+                [
+                    sys.executable, os.path.join(deploy_dir, 'packaging/debian/debian_build_debs.py')
+                ],
+                cwd=args['buildroot'],
+                env=package_env,
+            )
+
+            if result.returncode != 0:
+                # TODO:
+                exit(1)
+
+            tar_executable = shutil.which('tar')
+            # TODO: Error check
+
+            root_package_filename = os.path.join(packages_dir, f"mdsplus_{flavor}_{release_version}_{args['distname']}_{arch}.tgz")
+            root_package_contents = glob.glob(os.path.join(install_dir, '*'))
+            root_package_contents = [ os.path.relpath(filename, install_dir) for filename in root_package_contents ]
+
+            print(f'Creating {root_package_filename}')
+
+            result = subprocess.run(
+                [
+                    tar_executable, '-czf', root_package_filename, *root_package_contents,
+                ],
+                cwd=install_dir,
+            )
+
+            if result.returncode != 0:
+                # TODO:
+                exit(1)
+
+            debs_package_filename = os.path.join(packages_dir, f"mdsplus_{flavor}_{release_version}_{args['distname']}_{arch}_debs.tgz")
+            debs_package_contents = glob.glob(os.path.join(dist_dir, '*.deb'))
+            debs_package_contents = [ os.path.relpath(filename, dist_dir) for filename in debs_package_contents ]
+
+            print(f'Creating {debs_package_filename}')
+
+            result = subprocess.run(
+                [
+                    tar_executable, '-czf', debs_package_filename, *debs_package_contents,
+                ],
+                cwd=dist_dir,
+            )
+
+            if result.returncode != 0:
+                # TODO:
+                exit(1)
 
         if args['test']:
             # You can run ctest -j to run tests in parallel, but in order to capture the output in log files
