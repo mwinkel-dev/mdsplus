@@ -527,6 +527,11 @@ else:
         print('Unable to find cmake')
         exit(1)
 
+    # TODO: Don't hardcode
+    if args['platform'] == 'windows':
+        # TODO: Add support for mingw32-cmake
+        cmake = shutil.which('mingw64-cmake')
+
     ctest = shutil.which('ctest')
     if ctest is None:
         print('Unable to find ctest')
@@ -925,7 +930,7 @@ else:
 
                     test_env = dict(os.environ)
                     test_env['mdsevent_port'] = ''
-                    
+
                     test_process = subprocess.Popen(
                         [ ctest, '-I', f"{test['index']},{test['index']}", '-V' ],
                         stdout=log_file,

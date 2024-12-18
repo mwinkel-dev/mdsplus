@@ -7,7 +7,8 @@ set(MDSPLUS_TEST_INDEX 0 CACHE STRING "" FORCE)
 #                  COMMAND <command> [<arg>...])
 #                  [WORKING_DIRECTORY <dir>]
 #                  [ENVIRONMENT_MODIFICATIONS <mods>]
-#                  [NO_VALGRIND])
+#                  [NO_VALGRIND]
+#                  [NO_WINE])
 #
 # Call add_test() and set_tests_properties() to configure all of the test's properties.
 #
@@ -25,7 +26,7 @@ function(mdsplus_add_test)
     cmake_parse_arguments(
         PARSE_ARGV 0 ARGS
         # Booleans
-        "NO_VALGRIND"
+        "NO_VALGRIND;NO_WINE"
         # Single-Value
         "NAME;WORKING_DIRECTORY;TEST_LIST_VARIABLE"
         # Multi-Value
@@ -48,8 +49,8 @@ function(mdsplus_add_test)
         "MDS_PATH=cmake_list_prepend:${CMAKE_CURRENT_SOURCE_DIR}"
 
         # Used to run or load Python
-        "PYTHON=set:${Python_EXECUTABLE}"
-        "PyLib=set:${Python_LIBRARIES}"
+        "PYTHON=set:${PYTHON}"
+        "PyLib=set:${PyLib}"
 
         # Needed for `import MDSplus` in Python
         "PYTHONPATH=set:${CMAKE_SOURCE_DIR}/python"
@@ -69,11 +70,30 @@ function(mdsplus_add_test)
     )
 
     if(WIN32)
-        # Windows searches $PATH for loading .dll's
+
         list(APPEND _env_mods
-            "PATH=path_list_prepend:${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
+            "OS=set:windows" # for do_tditests.sh
         )
+        
+        if(TEST_WITH_WINE)
+            # These are used even if NO_WINE is set for do_tditests.sh
+            list(APPEND _env_mods
+                "WINEDEBUG=set:-all"
+                "WINEARCH=set:${WINEARCH}"
+                "WINEPREFIX=set:${WINEPREFIX}"
+                "WINEPATH=cmake_list_prepend:${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
+
+                # Don't inherit the system python environment
+                "PYTHONHOME=unset:"
+            )
+
+            if(NOT ARGS_NO_WINE)
+                list(PREPEND ARGS_COMMAND ${wine_EXECUTABLE})
+            endif()
+        endif()
+
     else()
+
         # Linux searches $LD_LIBRARY_PATH for loading .so's
         # This is set for Apple as well for backwards compatibility
         list(APPEND _env_mods
@@ -89,6 +109,7 @@ function(mdsplus_add_test)
                 "DYLD_LIBRARY_PATH=path_list_prepend:${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
             )
         endif()
+        
     endif()
 
     set(_index ${MDSPLUS_TEST_INDEX})

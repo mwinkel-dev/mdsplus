@@ -29,7 +29,7 @@ foreach(_test_source ${_test_source_list})
 
     mdsplus_add_test(
         NAME ${_test_name}
-        COMMAND ${_test_name}
+        COMMAND $<TARGET_FILE:${_test_name}>
     )
 
 endforeach()
@@ -63,7 +63,7 @@ foreach(_test_source ${_fortran_test_source_list})
 
     mdsplus_add_test(
         NAME ${_test_name}
-        COMMAND ${_test_name}
+        COMMAND ${TEST_WRAPPER} $<TARGET_FILE:${_test_name}>
     )
 
 endforeach()

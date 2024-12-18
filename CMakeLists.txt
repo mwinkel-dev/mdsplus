@@ -196,10 +196,15 @@ if(PYTHON STREQUAL "$PYTHON")
     set(PYTHON "$ENV{PYTHON}")
 endif()
 
+set(_enable_motif_default ON)
+if(WIN32)
+    set(_enable_motif_default OFF)
+endif()
+
 mdsplus_option(
     ENABLE_MOTIF BOOL
     "Build motif libraries and applications."
-    DEFAULT ON
+    DEFAULT ${_enable_motif_default}
 )
 
 mdsplus_option(
@@ -221,11 +226,16 @@ mdsplus_option(
     DEFAULT OFF
 )
 
+set(_enable_java_default ON)
+if(WIN32)
+    set(_enable_java_default OFF)
+endif()
+
 # replaces --disable-java
 mdsplus_option(
     ENABLE_JAVA BOOL
     "Build java libraries and applications."
-    DEFAULT ON
+    DEFAULT ${_enable_java_default}
 )
 
 # (SLW) TODO
@@ -264,6 +274,17 @@ if(WIN32)
         ENABLE_LARGEFILE BOOL
         "Enable support for large files when compiling for 32-bit."
         DEFAULT ON
+    )
+
+    mdsplus_option(
+        TEST_WITH_WINE BOOL
+        "Use wine for running tests, and create a wineprefix in \${CMAKE_BUILD_DIR}/.wine"
+        DEFAULT OFF
+    )
+
+    mdsplus_option(
+        WINE_PYTHON STRING
+        "Path to the python executable for the installation to use when running tests in wine."
     )
 endif()
 
@@ -357,10 +378,15 @@ mdsplus_option(
     "Location of libxml2 library"
 )
 
+set(_use_system_blas_default ON)
+if(WIN32)
+    set(_use_system_blas_default OFF)
+endif()
+
 mdsplus_option(
-    NO_SYSTEM_BLAS BOOL
-    "Use the local copy of blas in math/blas/ instead of a system version"
-    DEFAULT OFF
+    USE_SYSTEM_BLAS BOOL
+    "Use a system version of blas instead of the local copy in math/blas/"
+    DEFAULT ${_use_system_blas_default}
 )
 
 # TODO: doxygen dot, man, rtf, xml, chm, chi, html
@@ -419,6 +445,15 @@ add_compile_definitions(
 
 include(MDSplusCheckFlags)
 include(MDSplusAddCompilerFlag)
+
+if(MINGW)
+    # This is not filled in correctly for mingw
+    set(CMAKE_DL_LIBS dl)
+
+    # Windows should not have any prefix on the .dll/.lib files
+    set(CMAKE_SHARED_LIBRARY_PREFIX "")
+    set(CMAKE_STATIC_LIBRARY_PREFIX "")
+endif()
 
 if(BUILD_TESTING)
     include(CTest)
@@ -540,7 +575,7 @@ if(ENABLE_SANITIZE IN_LIST _sanitize_flavor_list)
 
     # TODO: Error checking
 
-    set(LD_PRELOAD ${_ld_preload})
+    set(LD_PRELOAD "${_ld_preload}")
 
 endif()
 
@@ -609,7 +644,48 @@ endif()
 
 find_package(Python COMPONENTS Interpreter REQUIRED)
 find_package(Python COMPONENTS Development.Embed)
+
 set(PYTHON "${Python_EXECUTABLE}")
+set(PyLib "${Python_LIBRARIES}")
+
+if(TEST_WITH_WINE)
+    find_program(wine_EXECUTABLE wine REQUIRED)
+
+    if(DEFINED WINE_PYTHON)
+        set(PYTHON "${WINE_PYTHON}")
+        cmake_path(GET WINE_PYTHON PARENT_PATH WINE_PYTHONHOME)
+        file(GLOB PyLib ${WINE_PYTHONHOME}/python*.dll)
+    endif()
+
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        set(WINEARCH "win64")
+    else()
+        set(WINEARCH "win32")
+    endif()
+
+    set(WINEPREFIX "${CMAKE_BINARY_DIR}/.wine")
+
+    # Create the wineprefix
+    if(NOT IS_DIRECTORY ${WINEPREFIX})
+        message(STATUS "Creating wineprefix: ${WINEPREFIX}")
+
+        file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/.wine)
+
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E env
+                WINEARCH=${WINEARCH}
+                WINEPREFIX=${WINEPREFIX}
+                ${wine_EXECUTABLE} cmd.exe /C echo test
+            OUTPUT_VARIABLE _output
+            ERROR_VARIABLE _error
+            RESULT_VARIABLE _result
+        )
+
+        if(NOT _result EQUAL 0)
+            message(FATAL_ERROR "Failed to create wineprefix ${WINEPREFIX}\n${_output}\n${_result}")
+        endif()
+    endif()
+endif()
 
 # Finds the platform specific threading libraries, usually pthreads
 find_package(Threads REQUIRED)
@@ -624,7 +700,7 @@ set(LibXml2_ROOT_DIR "${LIBXML2_DIR}")
 mark_as_advanced(LibXml2_ROOT_DIR)
 find_package(LibXml2 REQUIRED)
 
-if(NOT NO_SYSTEM_BLAS)
+if(USE_SYSTEM_BLAS)
     # Finds the Basic Linear Algebra Subprograms fortran functions
     find_package(BLAS)
     if(NOT TARGET BLAS::BLAS)
@@ -862,8 +938,9 @@ set(HAVE_SYBASE ${Sybase_FOUND})
 check_include_files("vxWorks.h" HAVE_VXWORKS_H)
 
 # Readline
-check_include_files("readline/readline.h" HAVE_READLINE_READLINE_H)
-check_symbol_exists("rl_set_signals" "readline/readline.h" HAVE_RL_SET_SIGNALS)
+# We need to include <stdio.h> for <readline/readline.h> to work with mingw
+check_include_files("stdio.h;readline/readline.h" HAVE_READLINE_READLINE_H)
+check_symbol_exists("rl_set_signals" "stdio.h;readline/readline.h" HAVE_RL_SET_SIGNALS)
 
 # Linux Kernel
 check_include_files("scsi/sg.h" HAVE_SCSI_SG_H)
