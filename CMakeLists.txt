@@ -437,6 +437,11 @@ else()
     mdsplus_add_compiler_flags(-Wall)
     mdsplus_add_compiler_flags(-Wextra)
 
+    # Disable warnings for argument type mismatches in Fortran
+    # TODO: Investigate why both are needed
+    mdsplus_add_compiler_flags(-fallow-argument-mismatch)
+    mdsplus_add_compiler_flags(-Wno-argument-mismatch)
+
     if(CMAKE_Fortran_COMPILER_ID STREQUAL "Intel")
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -warn all")
     endif()
@@ -602,7 +607,8 @@ if(NOT DEFINED Python_EXECUTABLE AND NOT PYTHON STREQUAL "")
     mark_as_advanced(Python_EXECUTABLE)
 endif()
 
-find_package(Python COMPONENTS Interpreter Development.Embed REQUIRED)
+find_package(Python COMPONENTS Interpreter REQUIRED)
+find_package(Python COMPONENTS Development.Embed)
 set(PYTHON "${Python_EXECUTABLE}")
 
 # Finds the platform specific threading libraries, usually pthreads

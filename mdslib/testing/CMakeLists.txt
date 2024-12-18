@@ -55,12 +55,10 @@ foreach(_test_source ${_fortran_test_source_list})
             MdsTestShr
     )
 
-    # TODO: Remove?
     target_compile_options(
         ${_test_name}
         PRIVATE
             -Wno-error
-            -fallow-argument-mismatch
     )
 
     mdsplus_add_test(
