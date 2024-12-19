@@ -125,6 +125,7 @@ mdsplus_option(
 # * CMAKE_INSTALL_INCLUDEDIR
 include(GNUInstallDirs)
 
+# TODO: Remove?
 # Defines option(BUILD_TESTING)
 include(CTest)
 
@@ -633,7 +634,9 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 # CMake built-in packages to find
 
 # Do not prefer system apple python
+if(APPLE)
 set(Python_FIND_FRAMEWORK LAST)
+endif()
 
 # In order for find_package(Python) to use the python specified with -DPYTHON or $PYTHON
 # we need to convert it to an absolute path
@@ -913,6 +916,8 @@ mdsplus_print_options()
 
 include(CheckIncludeFiles)
 include(CheckSymbolExists)
+
+# TODO: Configure with --debug-trycompile and check that no includes are missing
 
 # POSIX
 check_include_files("alloca.h" HAVE_ALLOCA_H) # TODO: Remove?
