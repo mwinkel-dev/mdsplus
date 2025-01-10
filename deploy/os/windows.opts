@@ -1,3 +1,1 @@
---platform=windows --distname=Windows --dockerimage=mdsplus/builder:windows
--DTEST_WITH_WINE=ON -DWINE_PYTHON=/python27/python.exe
--DENABLE_IDL=OFF
+windows-win64.opts

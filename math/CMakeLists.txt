@@ -4,7 +4,7 @@
 ###
 
 add_library(
-    MdsMath SHARED
+    MdsMath
     boxsmooth.c
     cmul.f
     csint.f

@@ -197,12 +197,12 @@ if(WIN32)
 endif()
 
 install(
-    FILES mdsip.hosts RENAME mdsip.hosts${_win}
+    FILES mdsip.hosts${_win} RENAME mdsip.hosts
     TYPE SYSCONF
 )
 
 install(
-    FILES multi.hosts RENAME multi.hosts${_win}
+    FILES multi.hosts${_win} RENAME multi.hosts
     TYPE SYSCONF
 )
 
