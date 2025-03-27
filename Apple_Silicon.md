@@ -124,8 +124,87 @@ IDL> mdsconnect, 'localhost'
 IDL> 
 ``` 
 - mdsip services
-    - To automatically run a mdsip service when MacOS boots up, it is necessary to create a "Property List" file (aka `plist` file) so that `launchd` can start the service.   The `plist` file still has to be written, tested and added to the MacOS versions of MDSplus (i.e. applies to both Apple Silicon and Intel).
-    - For more information, refer to this Apple Developer documentation: [Daemons and Services](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html).  Note that the bottom of the web page lists the constraints / requirements that a process must abide by in order to be run by `launchd`.
+    - Although `mdsip` works fine on Apple Silicon, additional development / packaging work is needed so it will be easy for users to customize and install it as a service.
+
+
+# MDSIP Service
+
+This section provides an example `plist` file that demonstrates how `mdsip` can be run as a service.   However, the file needs to be reviewed / revised before inclusion in a MDSplus release for MacOS.
+
+Before experimenting with this example `plist` file, it is advisable to read this Apple Developer documentation: [Daemons and Services](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/Introduction.html).  Note that later pages in the doucment list the constraints / requirements that a process must abide by in order to be run by `launchd`.
+
+It is also advisable to read these Apple man pages:
+- `man launchctl`
+- `man launchd.plist`
+
+This example installs the service as a *Launch Agent* that only runs in the user's process when they login with the usual MacOS GUI.   For a production version, it should become a *Launch Daemon* that runs whenever the computer is on.   
+
+Where the `plist` file is installed, determines the availability of the service.
+- `~/Library/LaunchAgents` = user's process
+- `/Library/LaunchAgents` = available to all users
+- `/Library/LaunchDaemon` = location for the eventual production version
+
+## Using This Example
+- Build MDSplus for Apple Silicon using the `cmake` branch.
+- Create the `/usr/local/mdsplus` directory with the appropriate ownership and permissions.
+- Install MDSplus in `/usr/local/mdsplus`.
+- Create the `/var/log/mdsplus` and `/var/log/mdsplus/mdsipd` directories with the approrpriate ownership and permissions.
+- Create a `/usr/local/trees` directory and copy an existing MDSplus tree to that directory.
+- Paste the following `plist` file to `~/org.mdsplus.mdsipd.plist`.
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 
+   NOTES: 
+      1) Port is 8000, log dir must exist, using mdsip.hosts that ships with MDSplus.
+      2) Customize these as needed.
+      3) Then place this plist file in the appropriate location.
+            - for debugging, probably best as a per-user agent in the user's "~/Library/LaunchAgents" dir
+            - for production use, probably best as a system daemon in "/Library/LaunchDaemons" dir
+--> 
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>org.mdsplus.mdsipd</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/mdsplus/bin/mdsip_server</string>
+        <string>8000</string>
+        <string>/var/log/mdsplus/mdsipd</string>
+        <string>/usr/local/mdsplus/etc/mdsip.hosts</string>
+    </array>
+    <key>KeepAlive</key>
+    <true/>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>MDSPLUS_DIR</key>
+        <string>/usr/local/mdsplus</string>
+        <key>default_tree_path</key>
+        <string>/usr/local/trees</string>
+    </dict>
+<!-- useful for debugging plist and launchd errors
+    <key>StandardOutPath</key>
+    <string>/var/log/mdsplus/launch.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/mdsplus/launch.log</string>
+    <key>Debug</key>
+    <true/>
+-->
+</dict>
+</plist>
+```
+- Edit the file as desired (for example setting the `WorkingDirectory`).
+- Use `id -a` to find the UID for your MacOS user account.
+- Install the edited `plist` file with `cp ~/org.mdsplus.mdsipd.plist ~/Library/LaunchAgents`.
+- It might be necessary to enable the service with `launchctl enable gui/<uid>/org.mdsplus.mdsipd`.
+- Wait a minute or so and MacOS should display a pop-up notice that `mdsip_server` is now a service.   (You might also have to log out and log back in.)
+- Launch `jTraverser2` and select `File->Connect` from the menu.  Enter `localhost:8000` in the pop-up.  If it connects, then use `File->Open` to select the tree that was installed in `/usr/local/trees`.
+
+### Troubleshooting
+These tips were useful when creating the example.
+- Uncomment the debug section of the `plist` file.
+- Review the log files in `/var/log/mdsplus` and `/var/log/mdsplus/mdsipd`.
+- Install the `LaunchControl` application to inspect the service.   This is an app that provides a graphical user interface to Apple's `launchctl` utility.   The app is able to provide details about the service and also highlight problems with the `plist` file.   For example, when the above `plist` file was first installed, `launchd` exited with error code `78`.   The `LaunchControl` app explained that the problem was that the `/var/log/mdsplus` directory had the wrong permissions.  The `LaunchControl` app is available from the `Homebrew` package manager for MacOS (e.g., `brew install --cask launchcontrol`).  The trial version is sufficient to spot major errors; a license can be purchased to enable additional features.
 
 # MacPorts packages
 
