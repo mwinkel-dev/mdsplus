@@ -189,8 +189,19 @@ pipeline {
 
                 stage("Test MATLAB") {
                     steps {
-                        echo "Testing MATLAB"
-                        // TODO
+                        // The MATLAB tests have to be run with the same OS as the builder
+                        ws("${WORKSPACE}/ubuntu22") {
+                            withEnv(["MDSPLUS_DIR=${WORKSPACE}/workspace-ubuntu-22-amd64/install/usr/local/mdsplus"]) {
+                                sh """
+                                    set +x
+                                    . \$MDSPLUS_DIR/setup.sh
+                                    export PYTHONPATH=\$MDSPLUS_DIR/python/
+                                    set -x
+                                    cd matlab/testing
+                                    matlab -batch run_tests
+                                """
+                            }
+                        }
                     }
                 }
             }
@@ -251,5 +262,4 @@ pipeline {
             cleanWs disableDeferredWipeout: true, deleteDirs: true
         }
     }
-}
-
+}a
