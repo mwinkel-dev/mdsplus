@@ -169,11 +169,11 @@ pipeline {
         }
 
         stage('Additional Testing') {
-            parallel {
-                stage("Test IDL") {
-                    steps {
-                        // The IDL tests have to be run with the same OS as the builder
-                        ws("${WORKSPACE}/ubuntu-22-amd64") {
+            // The tests have to be run with the same OS as the builder
+            ws("${WORKSPACE}/ubuntu-22-amd64") {
+                parallel {
+                    stage("Test IDL") {
+                        steps {
                             withEnv(["MDSPLUS_DIR=${WORKSPACE}/workspace-ubuntu-22-amd64/install/usr/local/mdsplus"]) {
                                 sh """
                                     set +x
@@ -185,12 +185,10 @@ pipeline {
                             }
                         }
                     }
-                }
 
-                stage("Test MATLAB") {
-                    steps {
-                        // The MATLAB tests have to be run with the same OS as the builder
-                        ws("${WORKSPACE}/ubuntu-22-amd64") {
+                    stage("Test MATLAB") {
+                        steps {
+                            // The MATLAB tests have to be run with the same OS as the builder
                             withEnv(["MDSPLUS_DIR=${WORKSPACE}/workspace-ubuntu-22-amd64/install/usr/local/mdsplus"]) {
                                 sh """
                                     set +x
